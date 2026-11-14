@@ -16,6 +16,7 @@ const NOTIFICATION_PREF_KEY = "novastore-notifications-enabled-v1";
 const productGrid = document.querySelector("#productGrid");
 const searchInput = document.querySelector("#searchInput");
 const categoryFilter = document.querySelector("#categoryFilter");
+const sortOrder = document.querySelector("#sortOrder");
 const productCount = document.querySelector("#productCount");
 const emptyState = document.querySelector("#emptyState");
 const statusMessage = document.querySelector("#statusMessage");
@@ -347,6 +348,13 @@ function renderProducts() {
     (product.name.toLocaleLowerCase("es").includes(term) || product.description.toLocaleLowerCase("es").includes(term)) &&
     (category === "Todas" || product.category === category)
   );
+  if (sortOrder.value === "price-asc") {
+    filtered.sort((a,b) => a.price - b.price);
+  } else if (sortOrder.value === "price-desc") {
+    filtered.sort((a,b) => b.price - a.price);
+  } else if (sortOrder.value === "name-asc") {
+    filtered.sort((a,b) => a.name.localeCompare(b.name,"es",{sensitivity:"base"}));
+  }
   productGrid.replaceChildren(...filtered.map(createProductCard));
   productCount.textContent = `${filtered.length} ${filtered.length === 1 ? "producto" : "productos"}`;
   emptyState.hidden = filtered.length !== 0;
@@ -470,6 +478,7 @@ document.querySelector("#detailAddToCart").addEventListener("click",() => {
 });
 searchInput.addEventListener("input",renderProducts);
 categoryFilter.addEventListener("change",renderProducts);
+sortOrder.addEventListener("change",renderProducts);
 document.querySelector('#productForm [name="name"]').addEventListener("input",updateProductIconPreview);
 document.querySelector('#productForm [name="category"]').addEventListener("change",updateProductIconPreview);
 document.querySelector("#productForm").addEventListener("submit",async event=>{
