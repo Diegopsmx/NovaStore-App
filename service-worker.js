@@ -1,4 +1,4 @@
-const CACHE_NAME = "novastore-cache-v6";
+const CACHE_NAME = "novastore-cache-v7";
 const APP_SHELL = [
   "./",
   "./index.html",

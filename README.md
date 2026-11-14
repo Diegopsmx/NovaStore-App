@@ -41,7 +41,7 @@ Descargar el ZIP solo obtiene los archivos del proyecto. Para instalar la PWA, s
 
 ## Componentes y funciones
 
-- **Catálogo:** muestra productos y permite buscarlos y filtrarlos por categoría.
+- **Catálogo:** muestra productos y permite buscarlos, filtrarlos por categoría y ordenarlos por precio o nombre.
 - **Favoritos y carrito:** guarda favoritos y permite administrar cantidades en el carrito.
 - **Detalles y reseñas:** muestra información, calificaciones y opiniones; también permite agregar reseñas.
 - **Agregar productos:** registra productos con categoría y descripción; permite seleccionar una foto, que se reduce y guarda localmente.
@@ -64,7 +64,7 @@ La aplicación no incluye cuentas ni pagos reales. Favoritos, carrito y reseñas
 ## Pruebas manuales en navegador
 
 1. Ejecuta `python server.py` y abre `http://127.0.0.1:8000` en Chrome o Edge. Usa `localhost`/HTTPS; `file://` no permite probar estas APIs.
-2. **Service Worker y actualización**: abre DevTools → **Application** → **Service Workers** y confirma que `service-worker.js` esté activo. Al cambiar el código del worker, incrementa `CACHE_NAME` en `service-worker.js` para probar la nueva versión.
+2. **Service Worker y actualización**: abre DevTools → **Application** → **Service Workers** y confirma que `service-worker.js` esté activo. En esta candidata el caché cambió a `novastore-cache-v7`; al instalarla, el worker nuevo precarga el App Shell antes de activarse y elimina el caché anterior.
 3. **Offline**: en DevTools → **Network**, activa **Offline** y recarga. La interfaz y el catálogo local deben abrirse. Agrega un producto y confirma que aparece como pendiente. Vuelve a **Online** y pulsa **Enviar pendientes** si no se sincroniza automáticamente.
 4. **Notificación**: en **Agregar producto**, pulsa **Activar notificaciones** y permite el aviso. Crea un producto offline y sincroniza una cola no vacía al volver online.
 5. **Cámara/foto**: en el formulario pulsa **Foto del producto**. En un teléfono puede ofrecer **Tomar foto**; en escritorio puedes elegir una imagen para comprobar la vista previa y persistencia. Acepta el permiso si aparece.
@@ -86,8 +86,10 @@ Cuatro pruebas automatizadas cubren catálogo vacío, registro persistente, reem
 | --- | --- | --- |
 | La pantalla inicial y la pantalla principal se presentan correctamente. | Aprobada | En navegador, título `NovaStore | Catálogo de productos`, encabezado de inicio y sección `Catálogo de productos` visibles. |
 | Los datos se muestran en la interfaz. | Aprobada | El catálogo mostró seis productos iniciales y el contador `6 productos`. |
+| El catálogo se ordena por precio, nombre, búsqueda y categoría. | Aprobada | Validado en Chromium; la matriz y los detalles están en [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md). |
 | Los datos locales permanecen después de recargar. | Aprobada | Se guardó y volvió a mostrar un favorito después de recargar. |
-| Los recursos cacheados permiten abrir sin conexión. | Aprobada en versión anterior; pendiente de revalidar | La prueba registrada se realizó con `novastore-cache-v5`; el Service Worker actual usa `novastore-cache-v6`. |
+| Los recursos cacheados permiten abrir sin conexión. | Aprobada en la candidata | En un origen local de prueba, `novastore-cache-v7` abrió la interfaz y el producto guardado en modo Offline. |
+| La activación conserva los datos y reemplaza la caché. | Aprobada en origen de prueba; falta actualización desde una instalación anterior | Se activó la candidata con claves locales de prueba y caché v6; la caché v7 tomó control y los datos permanecieron. La prueba pública desde una instalación previa sigue pendiente. |
 | Los pendientes se envían al recuperar conectividad. | Aprobada con reintento manual | Un producto offline se conservó y se envió al volver online mediante **Enviar pendientes**. |
 | Los reintentos no duplican registros. | Aprobada en API | `GET /api/products` devolvió un solo producto al reenviar el mismo ID con valores distintos. |
 | El servidor rechaza datos inválidos. | Aprobada | Las pruebas cubren datos incompletos/inválidos y un precio fuera del rango finito. |
@@ -109,6 +111,17 @@ Cuatro pruebas automatizadas cubren catálogo vacío, registro persistente, reem
 - El almacenamiento local depende del navegador y del origen, y puede eliminarse desde sus ajustes.
 - Las fotos de productos se conservan localmente y no se suben al servidor.
 - Las notificaciones son locales, no hay push remoto ni sincronización en segundo plano.
+
+## Preparación de la versión candidata
+
+La versión inicial de este ejercicio se identifica como `v1.0.0`; la candidata de trabajo es `v1.1.0-rc.1` y prepara la liberación `v1.1.0`. El cambio funcional seleccionado es el ordenamiento del catálogo. La versión solo cambia recursos de la aplicación: las claves existentes de `localStorage` se conservan y no se ejecuta una migración ni se limpia el almacenamiento del navegador.
+
+- Cambios y notas: [CHANGELOG.md](CHANGELOG.md).
+- Casos, resultados y pasos de validación: [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md).
+- Rama de trabajo: `feature/catalog-sorting-v1.1.0`. Para simular la integración, revisa y combina esta rama en `main` mediante PR o `git merge --no-ff`.
+- El despliegue público y la prueba en una instalación remota requieren acceso al hosting; no se publican desde este entorno.
+
+Al probar una actualización, conserva el mismo origen (protocolo, host y puerto). El Service Worker no borra IndexedDB ni `localStorage`: sus reglas de activación solo sustituyen cachés `novastore-cache-*`. Para revertir una publicación, vuelve a desplegar los archivos de la versión anterior en el mismo origen y cambia el identificador de caché a uno nuevo; no limpies el almacenamiento de los usuarios ni reutilices el caché de la candidata.
 
 ## Archivos principales
 
