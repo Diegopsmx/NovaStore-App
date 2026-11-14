@@ -12,6 +12,7 @@ const CART_KEY = "novastore-cart-v1";
 const REVIEWS_KEY = "novastore-reviews-v1";
 const PENDING_PRODUCTS_KEY = "novastore-pending-products-v1";
 const PRODUCTS_API = "./api/products";
+const NOTIFICATION_PREF_KEY = "novastore-notifications-enabled-v1";
 const productGrid = document.querySelector("#productGrid");
 const searchInput = document.querySelector("#searchInput");
 const categoryFilter = document.querySelector("#categoryFilter");
@@ -54,6 +55,35 @@ function isProduct(value) {
   return value && Number.isSafeInteger(value.id) && typeof value.name === "string" &&
     Number.isFinite(value.price) && value.price > 0 && typeof value.category === "string" &&
     typeof value.description === "string" && typeof value.emoji === "string";
+}
+function compressProductPhoto(file) {
+  return new Promise((resolve,reject) => {
+    if (!file || !file.type.startsWith("image/")) return reject(new Error("Selecciona un archivo de imagen válido."));
+    if (file.size > 12 * 1024 * 1024) return reject(new Error("La imagen debe pesar menos de 12 MB."));
+    const image = new Image();
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.onload = () => { image.src = reader.result; };
+    image.onerror = () => reject(new Error("No se pudo procesar la imagen."));
+    image.onload = () => {
+      const scale = Math.min(1, 1000 / Math.max(image.naturalWidth,image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(image.naturalWidth * scale);
+      canvas.height = Math.round(image.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(image,0,0,canvas.width,canvas.height);
+      resolve(canvas.toDataURL("image/jpeg",0.72));
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function showSyncNotification() {
+  if (!("Notification" in window) || localStorage.getItem(NOTIFICATION_PREF_KEY) !== "enabled" || Notification.permission !== "granted") return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification("NovaStore", {body:"Tus productos pendientes se sincronizaron correctamente.",icon:"icons/icon.svg",tag:"novastore-sync",data:{url:"./#agregar"}});
+  } catch (error) {
+    console.warn("No se pudo mostrar la notificación de sincronización:",error);
+  }
 }
 function loadCollection(key, isValid) {
   try {
@@ -106,7 +136,10 @@ async function loadProductsFromServer() {
     throw new Error("El servidor devolvió una lista de productos no válida.");
   }
   const merged = new Map(products.map(product => [product.id,product]));
-  result.products.forEach(product => merged.set(product.id,product));
+  result.products.forEach(product => {
+    const localProduct = merged.get(product.id);
+    merged.set(product.id,localProduct?.photo ? {...product,photo:localProduct.photo} : product);
+  });
   const updatedProducts = [...merged.values()];
   if (!saveProducts(updatedProducts)) return false;
   products = updatedProducts;
@@ -131,7 +164,7 @@ async function syncPendingProducts() {
       const response = await fetch(PRODUCTS_API, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(product)
+        body:JSON.stringify({id:product.id,name:product.name,price:product.price,category:product.category,description:product.description,emoji:product.emoji})
       });
       if (!response.ok) {
         const details = await response.text();
@@ -152,6 +185,7 @@ async function syncPendingProducts() {
     }
   }
   statusMessage.textContent = "Todos los productos pendientes se enviaron al servidor.";
+  await showSyncNotification();
   return true;
 }
 function money(value) {
@@ -211,7 +245,14 @@ function addProductToCart(product) {
 }
 function openProductDetails(product) {
   detailProductId = product.id;
-  document.querySelector("#detailIcon").textContent = product.emoji || "📦";
+  const detailIcon = document.querySelector("#detailIcon");
+  detailIcon.replaceChildren();
+  if (product.photo) {
+    const photo = document.createElement("img");
+    photo.src = product.photo;
+    photo.alt = `Foto de ${product.name}`;
+    detailIcon.append(photo);
+  } else detailIcon.textContent = product.emoji || "📦";
   document.querySelector("#detailCategory").textContent = product.category;
   document.querySelector("#detailName").textContent = product.name;
   document.querySelector("#detailRating").textContent = getAverageRating(product.id);
@@ -246,7 +287,12 @@ function createProductCard(product) {
   const visual = document.createElement("div");
   visual.className = "product-visual";
   visual.setAttribute("aria-hidden","true");
-  visual.textContent = product.emoji || "📦";
+  if (product.photo) {
+    const photo = document.createElement("img");
+    photo.src = product.photo;
+    photo.alt = `Foto de ${product.name}`;
+    visual.append(photo);
+  } else visual.textContent = product.emoji || "📦";
   const info = document.createElement("div");
   info.className = "product-info";
   const tag = document.createElement("span");
@@ -426,7 +472,7 @@ searchInput.addEventListener("input",renderProducts);
 categoryFilter.addEventListener("change",renderProducts);
 document.querySelector('#productForm [name="name"]').addEventListener("input",updateProductIconPreview);
 document.querySelector('#productForm [name="category"]').addEventListener("change",updateProductIconPreview);
-document.querySelector("#productForm").addEventListener("submit",event=>{
+document.querySelector("#productForm").addEventListener("submit",async event=>{
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const name = String(form.get("name")).trim();
@@ -439,7 +485,13 @@ document.querySelector("#productForm").addEventListener("submit",event=>{
   }
   const {emoji} = inferProductEmoji(name,category);
   const productId = Math.max(Date.now(),...products.map(item => item.id + 1));
-  const product = {id:productId,name,price,category,description,emoji};
+  const photoFile = document.querySelector("#productPhoto").files[0];
+  let photo;
+  if (photoFile) {
+    try { photo = await compressProductPhoto(photoFile); }
+    catch (error) { statusMessage.textContent = error.message; return; }
+  }
+  const product = {id:productId,name,price,category,description,emoji,...(photo ? {photo} : {})};
   const updatedProducts = [product,...products];
   if (!saveProducts(updatedProducts)) {
     return;
@@ -454,6 +506,8 @@ document.querySelector("#productForm").addEventListener("submit",event=>{
   }
   pendingProducts = updatedQueue;
   event.currentTarget.reset();
+  document.querySelector("#photoPreview").hidden = true;
+  document.querySelector("#photoPreview").removeAttribute("src");
   updateProductIconPreview();
   searchInput.value = "";
   categoryFilter.value = "Todas";
@@ -505,6 +559,38 @@ mainNav.querySelectorAll("a").forEach(link=>link.addEventListener("click",()=>{
   menuToggle.setAttribute("aria-expanded","false");
 }));
 
+document.querySelector("#productPhoto").addEventListener("change",async event=>{
+  const file = event.currentTarget.files[0];
+  const preview = document.querySelector("#photoPreview");
+  if (!file) { preview.hidden = true; preview.removeAttribute("src"); return; }
+  try {
+    preview.src = await compressProductPhoto(file);
+    preview.hidden = false;
+  } catch (error) {
+    event.currentTarget.value = "";
+    preview.hidden = true;
+    statusMessage.textContent = error.message;
+  }
+});
+document.querySelector("#locationButton").addEventListener("click",()=>{
+  const result = document.querySelector("#locationResult");
+  if (!("geolocation" in navigator)) {
+    result.textContent = "Este navegador no admite geolocalización.";
+    return;
+  }
+  result.textContent = "Solicitando ubicación; acepta el permiso del navegador para continuar…";
+  navigator.geolocation.getCurrentPosition(position=>{
+    const {latitude,longitude,accuracy} = position.coords;
+    result.textContent = `Ubicación: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (precisión aproximada: ${Math.round(accuracy)} m).`;
+  },error=>{
+    const messages = {
+      1:"Permiso de ubicación denegado. Puedes habilitarlo en los ajustes del sitio del navegador.",
+      2:"El dispositivo no pudo determinar la ubicación. Comprueba los servicios de ubicación.",
+      3:"La solicitud de ubicación tardó demasiado. Inténtalo de nuevo."
+    };
+    result.textContent = messages[error.code] || "No se pudo obtener la ubicación.";
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
+});
 document.querySelector("#notifyButton").addEventListener("click",async()=>{
   if (!("Notification" in window)) {
     statusMessage.textContent = "Este navegador no admite la API de notificaciones.";
@@ -520,13 +606,9 @@ document.querySelector("#notifyButton").addEventListener("click",async()=>{
       statusMessage.textContent = permission === "denied" ? "Permiso denegado. Puedes cambiarlo desde los ajustes del navegador." : "No se concedió permiso para notificaciones.";
       return;
     }
-    const registration = await navigator.serviceWorker.ready;
-    if (registration.showNotification) {
-      await registration.showNotification("NovaStore", {body:"¡Gracias por visitar el catálogo! Esta es una notificación de prueba.",icon:"icons/icon.svg",tag:"novastore-demo"});
-    } else {
-      new Notification("NovaStore", {body:"¡Gracias por visitar el catálogo!"});
-    }
-    statusMessage.textContent = "Notificación enviada correctamente.";
+    localStorage.setItem(NOTIFICATION_PREF_KEY,"enabled");
+    document.querySelector("#notifyButton").textContent = "Notificaciones activadas";
+    statusMessage.textContent = "Notificaciones activadas. Recibirás un aviso al completar una sincronización.";
   } catch (error) {
     statusMessage.textContent = "No se pudo mostrar la notificación. Comprueba que uses localhost o HTTPS.";
   }
@@ -537,7 +619,22 @@ if (location.protocol === "file:") {
 } else if ("serviceWorker" in navigator) {
   window.addEventListener("load", async()=>{
     try {
-      await navigator.serviceWorker.register("./service-worker.js");
+      const registration = await navigator.serviceWorker.register("./service-worker.js");
+      registration.update();
+      if (registration.waiting) registration.waiting.postMessage("SKIP_WAITING");
+      registration.addEventListener("updatefound",()=>{
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange",()=>{
+          if (installing.state === "installed" && navigator.serviceWorker.controller) installing.postMessage("SKIP_WAITING");
+        });
+      });
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange",()=>{
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
       console.info("Service Worker registrado correctamente.");
     } catch (error) {
       console.error("Error al registrar el Service Worker:",error);

@@ -81,6 +81,7 @@
         <label>Categoría<select name="category" required><option value="Electrónica">Electrónica</option><option value="Accesorios">Accesorios</option><option value="Hogar">Hogar</option><option value="Deportes">Deportes</option></select></label>
         <label>Descripción<input name="description" required maxlength="120" placeholder="Describe brevemente el producto"></label>
         <div class="product-icon-preview"><span id="productIconPreview" role="img" aria-label="Icono sugerido del producto">📦</span><p id="productIconHint" class="muted">El icono se sugiere según el nombre del producto.</p></div>
+        <div class="camera-control"><label for="productPhoto">Foto del producto (opcional)</label><input id="productPhoto" type="file" accept="image/*" capture="environment" aria-describedby="cameraHint"><p id="cameraHint" class="muted">Al elegir Tomar foto, el navegador solicitará permiso para usar la cámara. La imagen se guarda en este dispositivo.</p><img id="photoPreview" class="photo-preview" alt="Vista previa de la foto del producto" hidden></div>
         <button class="primary-button" type="submit">＋ Agregar producto</button>
       </form>
       <div class="sync-panel">
@@ -90,7 +91,8 @@
         </div>
         <button id="syncButton" class="secondary-button" type="button" disabled>Enviar pendientes</button>
       </div>
-      <div class="notification-panel"><div><strong>Notificaciones web</strong><p class="muted">Pulsa el botón para solicitar permiso y mostrar una notificación de prueba.</p></div><button id="notifyButton" class="secondary-button" type="button">Probar notificación</button></div>
+      <div class="notification-panel"><div><strong>Notificaciones web</strong><p class="muted">Activa las notificaciones para recibir un aviso cuando se sincronicen tus productos pendientes. El navegador solicitará permiso.</p></div><button id="notifyButton" class="secondary-button" type="button">Activar notificaciones</button></div>
+      <div class="notification-panel"><div><strong>Ubicación del dispositivo</strong><p class="muted">Pulsa el botón para solicitar permiso y consultar tu ubicación actual. La ubicación solo se muestra en esta pantalla.</p><p id="locationResult" class="muted" role="status" aria-live="polite">Ubicación aún no consultada.</p></div><button id="locationButton" class="secondary-button" type="button">Consultar ubicación</button></div>
       <p id="statusMessage" class="status-message" role="status"></p>
     </section>
   </main>

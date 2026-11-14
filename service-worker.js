@@ -1,4 +1,4 @@
-const CACHE_NAME = "novastore-cache-v5";
+const CACHE_NAME = "novastore-cache-v6";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -22,6 +22,18 @@ self.addEventListener("activate", event => {
       .then(keys => Promise.all(keys.filter(key => key.startsWith("novastore-cache-") && key !== CACHE_NAME).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", event => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(self.clients.matchAll({type:"window", includeUncontrolled:true}).then(clients => {
+    const client = clients.find(item => "focus" in item);
+    return client ? client.focus() : self.clients.openWindow("./");
+  }));
 });
 
 self.addEventListener("fetch", event => {

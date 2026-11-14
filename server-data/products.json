@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1792261624115,
+    "name": "play stattion 5",
+    "price": 9000,
+    "category": "Electrónica",
+    "description": "consola de videojuegos",
+    "emoji": "🎧"
+  },
+  {
+    "id": 1792259461544,
+    "name": "XBOX ONE",
+    "price": 5000,
+    "category": "Hogar",
+    "description": "consola de videojuegos",
+    "emoji": "🎮"
+  }
+]
