@@ -43,6 +43,7 @@
       <div class="section-heading"><div><p class="eyebrow">SELECCIÓN NOVASTORE</p><h2>Catálogo de productos</h2></div><span id="productCount" class="count-pill">0 productos</span></div>
       <div class="toolbar"><label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar productos..." aria-label="Buscar productos"></label>
         <select id="categoryFilter" aria-label="Filtrar por categoría"><option value="Todas">Todas las categorías</option><option>Electrónica</option><option>Accesorios</option><option>Hogar</option><option>Deportes</option></select>
+        <label class="sort-box">Ordenar por<select id="sortOrder" aria-label="Ordenar productos"><option value="featured">Recomendados</option><option value="price-asc">Precio: menor a mayor</option><option value="price-desc">Precio: mayor a menor</option><option value="name-asc">Nombre: A a Z</option></select></label>
       </div>
       <div id="productGrid" class="product-grid" aria-live="polite"></div>
       <p id="emptyState" class="empty-state" hidden>No hay productos que coincidan con tu búsqueda.</p>
@@ -119,7 +120,7 @@
     </article>
   </dialog>
 
-  <footer class="site-footer"><span>© 2026 NovaStore PWA</span><span>Catálogo digital · Proyecto académico</span><a href="#inicio">Volver arriba ↑</a></footer>
+  <footer class="site-footer"><span>© 2026 NovaStore PWA · v1.1.0-rc.1</span><span>Catálogo digital · Proyecto académico</span><a href="#inicio">Volver arriba ↑</a></footer>
   <script src="app.js"></script>
 </body>
 </html>
